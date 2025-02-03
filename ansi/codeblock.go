@@ -1,3 +1,5 @@
+// ansi/codeblock.go
+
 package ansi
 
 import (
@@ -17,10 +19,8 @@ const (
 )
 
 // mutex for synchronizing access to the chroma style registry.
-// Related https://github.com/alecthomas/chroma/pull/650
 var mutex = sync.Mutex{}
 
-// A CodeBlockElement is used to render code blocks.
 type CodeBlockElement struct {
 	Code     string
 	Language string
@@ -28,7 +28,6 @@ type CodeBlockElement struct {
 
 func chromaStyle(style StylePrimitive) string {
 	var s string
-
 	if style.Color != nil {
 		s = *style.Color
 	}
@@ -56,15 +55,13 @@ func chromaStyle(style StylePrimitive) string {
 		}
 		s += "underline"
 	}
-
 	return s
 }
 
 func (e *CodeBlockElement) Render(w io.Writer, ctx RenderContext) error {
 	bs := ctx.blockStack
 
-	var indentation uint
-	var margin uint
+	var indentation, margin uint
 	rules := ctx.options.Styles.CodeBlock
 	if rules.Indent != nil {
 		indentation = *rules.Indent
@@ -75,46 +72,45 @@ func (e *CodeBlockElement) Render(w io.Writer, ctx RenderContext) error {
 	theme := rules.Theme
 
 	if rules.Chroma != nil && ctx.options.ColorProfile != termenv.Ascii {
+		// PATCH Always re-register the theme so code blocks update properly on theme changes.
 		theme = chromaStyleTheme
 		mutex.Lock()
-		// Don't register the style if it's already registered.
-		_, ok := styles.Registry[theme]
-		if !ok {
-			styles.Register(chroma.MustNewStyle(theme,
-				chroma.StyleEntries{
-					chroma.Text:                chromaStyle(rules.Chroma.Text),
-					chroma.Error:               chromaStyle(rules.Chroma.Error),
-					chroma.Comment:             chromaStyle(rules.Chroma.Comment),
-					chroma.CommentPreproc:      chromaStyle(rules.Chroma.CommentPreproc),
-					chroma.Keyword:             chromaStyle(rules.Chroma.Keyword),
-					chroma.KeywordReserved:     chromaStyle(rules.Chroma.KeywordReserved),
-					chroma.KeywordNamespace:    chromaStyle(rules.Chroma.KeywordNamespace),
-					chroma.KeywordType:         chromaStyle(rules.Chroma.KeywordType),
-					chroma.Operator:            chromaStyle(rules.Chroma.Operator),
-					chroma.Punctuation:         chromaStyle(rules.Chroma.Punctuation),
-					chroma.Name:                chromaStyle(rules.Chroma.Name),
-					chroma.NameBuiltin:         chromaStyle(rules.Chroma.NameBuiltin),
-					chroma.NameTag:             chromaStyle(rules.Chroma.NameTag),
-					chroma.NameAttribute:       chromaStyle(rules.Chroma.NameAttribute),
-					chroma.NameClass:           chromaStyle(rules.Chroma.NameClass),
-					chroma.NameConstant:        chromaStyle(rules.Chroma.NameConstant),
-					chroma.NameDecorator:       chromaStyle(rules.Chroma.NameDecorator),
-					chroma.NameException:       chromaStyle(rules.Chroma.NameException),
-					chroma.NameFunction:        chromaStyle(rules.Chroma.NameFunction),
-					chroma.NameOther:           chromaStyle(rules.Chroma.NameOther),
-					chroma.Literal:             chromaStyle(rules.Chroma.Literal),
-					chroma.LiteralNumber:       chromaStyle(rules.Chroma.LiteralNumber),
-					chroma.LiteralDate:         chromaStyle(rules.Chroma.LiteralDate),
-					chroma.LiteralString:       chromaStyle(rules.Chroma.LiteralString),
-					chroma.LiteralStringEscape: chromaStyle(rules.Chroma.LiteralStringEscape),
-					chroma.GenericDeleted:      chromaStyle(rules.Chroma.GenericDeleted),
-					chroma.GenericEmph:         chromaStyle(rules.Chroma.GenericEmph),
-					chroma.GenericInserted:     chromaStyle(rules.Chroma.GenericInserted),
-					chroma.GenericStrong:       chromaStyle(rules.Chroma.GenericStrong),
-					chroma.GenericSubheading:   chromaStyle(rules.Chroma.GenericSubheading),
-					chroma.Background:          chromaStyle(rules.Chroma.Background),
-				}))
-		}
+		delete(styles.Registry, theme) // PATCH remove previous "charm" so re-registration takes effect
+
+		// Register the new style
+		styles.Register(chroma.MustNewStyle(theme, chroma.StyleEntries{
+			chroma.Text:                chromaStyle(rules.Chroma.Text),
+			chroma.Error:               chromaStyle(rules.Chroma.Error),
+			chroma.Comment:             chromaStyle(rules.Chroma.Comment),
+			chroma.CommentPreproc:      chromaStyle(rules.Chroma.CommentPreproc),
+			chroma.Keyword:             chromaStyle(rules.Chroma.Keyword),
+			chroma.KeywordReserved:     chromaStyle(rules.Chroma.KeywordReserved),
+			chroma.KeywordNamespace:    chromaStyle(rules.Chroma.KeywordNamespace),
+			chroma.KeywordType:         chromaStyle(rules.Chroma.KeywordType),
+			chroma.Operator:            chromaStyle(rules.Chroma.Operator),
+			chroma.Punctuation:         chromaStyle(rules.Chroma.Punctuation),
+			chroma.Name:                chromaStyle(rules.Chroma.Name),
+			chroma.NameBuiltin:         chromaStyle(rules.Chroma.NameBuiltin),
+			chroma.NameTag:             chromaStyle(rules.Chroma.NameTag),
+			chroma.NameAttribute:       chromaStyle(rules.Chroma.NameAttribute),
+			chroma.NameClass:           chromaStyle(rules.Chroma.NameClass),
+			chroma.NameConstant:        chromaStyle(rules.Chroma.NameConstant),
+			chroma.NameDecorator:       chromaStyle(rules.Chroma.NameDecorator),
+			chroma.NameException:       chromaStyle(rules.Chroma.NameException),
+			chroma.NameFunction:        chromaStyle(rules.Chroma.NameFunction),
+			chroma.NameOther:           chromaStyle(rules.Chroma.NameOther),
+			chroma.Literal:             chromaStyle(rules.Chroma.Literal),
+			chroma.LiteralNumber:       chromaStyle(rules.Chroma.LiteralNumber),
+			chroma.LiteralDate:         chromaStyle(rules.Chroma.LiteralDate),
+			chroma.LiteralString:       chromaStyle(rules.Chroma.LiteralString),
+			chroma.LiteralStringEscape: chromaStyle(rules.Chroma.LiteralStringEscape),
+			chroma.GenericDeleted:      chromaStyle(rules.Chroma.GenericDeleted),
+			chroma.GenericEmph:         chromaStyle(rules.Chroma.GenericEmph),
+			chroma.GenericInserted:     chromaStyle(rules.Chroma.GenericInserted),
+			chroma.GenericStrong:       chromaStyle(rules.Chroma.GenericStrong),
+			chroma.GenericSubheading:   chromaStyle(rules.Chroma.GenericSubheading),
+			chroma.Background:          chromaStyle(rules.Chroma.Background),
+		}))
 		mutex.Unlock()
 	}
 
@@ -125,19 +121,17 @@ func (e *CodeBlockElement) Render(w io.Writer, ctx RenderContext) error {
 	if len(theme) > 0 {
 		renderText(iw, ctx.options.ColorProfile, bs.Current().Style.StylePrimitive, rules.BlockPrefix)
 
-		err := quick.Highlight(iw, e.Code, e.Language, "terminal256", theme)
-		if err != nil {
+		if err := quick.Highlight(iw, e.Code, e.Language, "terminal256", theme); err != nil {
 			return err
 		}
 		renderText(iw, ctx.options.ColorProfile, bs.Current().Style.StylePrimitive, rules.BlockSuffix)
 		return nil
 	}
 
-	// fallback rendering
+	// Fallback rendering
 	el := &BaseElement{
 		Token: e.Code,
 		Style: rules.StylePrimitive,
 	}
-
 	return el.Render(iw, ctx)
 }
